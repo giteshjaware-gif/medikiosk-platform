@@ -1,0 +1,142 @@
+/* MediKiosk Platform - Clean Light Healthcare Theme & Interactive Voice Animations */
+
+:root {
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-color: #e2e8f0;
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --accent-cyan: #0284c7;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Card Elevation & Borders */
+.medical-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+.medical-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Voice Equalizer Waves Animation */
+@keyframes soundWave {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 28px;
+  }
+}
+
+.wave-bar {
+  width: 4px;
+  border-radius: 9999px;
+  background: #0d9488;
+  display: inline-block;
+  animation: soundWave 1.2s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0.1s; }
+.wave-bar:nth-child(2) { animation-delay: 0.3s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.4s; }
+.wave-bar:nth-child(5) { animation-delay: 0.15s; }
+.wave-bar:nth-child(6) { animation-delay: 0.35s; }
+.wave-bar:nth-child(7) { animation-delay: 0.25s; }
+
+/* Pulsing Mic Ring */
+@keyframes micPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(13, 148, 136, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0);
+  }
+}
+
+.mic-recording-pulse {
+  animation: micPulse 1.5s infinite;
+}
+
+/* Scanner Laser Line */
+@keyframes scanLaserLight {
+  0% {
+    top: 0%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 96%;
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.8;
+  }
+}
+
+.scanner-laser-line-light {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(13, 148, 136, 0) 0%, #0d9488 50%, rgba(13, 148, 136, 0) 100%);
+  box-shadow: 0 0 10px 2px rgba(13, 148, 136, 0.6);
+  animation: scanLaserLight 2.2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Red Flag Emergency Siren Box */
+@keyframes emergencyAlertBlink {
+  0%, 100% {
+    border-color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    border-color: #fca5a5;
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.1);
+  }
+}
+
+.emergency-alert-light {
+  animation: emergencyAlertBlink 1.2s infinite;
+}
+
+/* Clean Touch Feedback */
+button:active {
+  transform: scale(0.98);
+}
+
+/* Clean Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

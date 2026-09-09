@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediKiosk — AI Clinical History Software Platform</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfeff',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- Top Global Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <!-- Logo & Branding -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-cyan-500/20">
+          MK
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-black text-lg tracking-tight text-white">MediKiosk</h1>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">AI Platform</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ABDM & DPDP 2023</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Multimodal Clinical History & Document Intelligence</p>
+        </div>
+      </div>
+
+      <!-- Mode & View Switchers -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+        <button id="nav-btn-kiosk-view" onclick="switchView('kiosk-view')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+          Kiosk Simulator (Patient)
+        </button>
+        <button id="nav-btn-doctor-view" onclick="switchView('doctor-view')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+          Doctor OPD Portal (Step 5)
+        </button>
+        <button id="nav-btn-stack-view" onclick="switchView('stack-view')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+          AI Stack (Table 3.2 & 3.3)
+        </button>
+        <button id="nav-btn-journey-view" onclick="switchView('journey-view')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+          Patient Journey (3.4)
+        </button>
+      </nav>
+
+      <!-- Right Controls: Clinical Mode + Language -->
+      <div class="flex items-center gap-3">
+        <!-- Allopathy / AYUSH Mode Toggle -->
+        <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          <button id="btn-mode-allopathy" onclick="switchClinicalMode('allopathy')" class="px-2.5 py-1 rounded-lg font-bold bg-cyan-600 text-white shadow-sm transition-all">
+            Allopathy (SOCRATES)
+          </button>
+          <button id="btn-mode-ayush" onclick="switchClinicalMode('ayush')" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">
+            AYUSH (दशविध परीक्षा)
+          </button>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-xl text-xs">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path></svg>
+          <select id="global-lang-select" onchange="changeLanguage(this.value)" class="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer">
+            <option value="en" class="bg-slate-900">English (India)</option>
+            <option value="hi" class="bg-slate-900">हिन्दी (Hindi)</option>
+            <option value="ta" class="bg-slate-900">தமிழ் (Tamil)</option>
+            <option value="te" class="bg-slate-900">తెలుగు (Telugu)</option>
+            <option value="bn" class="bg-slate-900">বাংলা (Bengali)</option>
+            <option value="mr" class="bg-slate-900">मराठी (Marathi)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: KIOSK SIMULATOR (PATIENT JOURNEY STEPS 1 - 4)                     -->
+    <!-- ========================================================================= -->
+    <section id="kiosk-view" class="space-y-6">
+
+      <!-- Kiosk Bezel & Stepper Bar -->
+      <div class="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-xs font-mono text-cyan-300 font-semibold uppercase tracking-wider">MediKiosk Touch Terminal #04 &bull; AI Health Station</span>
+        </div>
+
+        <!-- 4 Steps Indicator -->
+        <div class="flex items-center gap-2 overflow-x-auto py-1">
+          <div id="step-badge-1" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 text-xs font-semibold shadow-lg shadow-cyan-500/10">
+            <span class="step-num w-5 h-5 rounded-full bg-cyan-500/30 flex items-center justify-center text-[11px]">1</span>
+            <span>Identify & Consent</span>
+          </div>
+          <span class="text-slate-600">&rarr;</span>
+          <div id="step-badge-2" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/60 text-xs font-semibold">
+            <span class="step-num w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[11px]">2</span>
+            <span>Multimodal Converse</span>
+          </div>
+          <span class="text-slate-600">&rarr;</span>
+          <div id="step-badge-3" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/60 text-xs font-semibold">
+            <span class="step-num w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[11px]">3</span>
+            <span>Scan & Digitize</span>
+          </div>
+          <span class="text-slate-600">&rarr;</span>
+          <div id="step-badge-4" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/60 text-xs font-semibold">
+            <span class="step-num w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[11px]">4</span>
+            <span>Summarize & Route</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 1: IDENTIFY & CONSENT -->
+      <div id="kiosk-step-1" class="p-6 md:p-8 bg-slate-900/90 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Step 1 — Identify & Consent</span>
+            <h2 class="text-2xl font-black text-white mt-1">Patient Check-In & Audio Consent (DPDP 2023)</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Authenticate with ABHA ID or Aadhaar, select your preferred language, and grant audio-guided consent.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              ABDM M1 Auth Gateway Active
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Left: ABHA Credentials & Demographics -->
+          <div class="space-y-4">
+            <div class="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3">
+              <label class="text-xs font-bold text-slate-300 block">ABHA Number / ABHA Address</label>
+              <div class="flex gap-2">
+                <input type="text" id="kiosk-abha-input" value="91-4521-8890-1234" class="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 font-mono text-sm text-cyan-300 focus:border-cyan-500 focus:outline-none">
+                <button onclick="alert('ABDM M1 Verified: Suresh Kumar (54M)')" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition-all shadow-md">
+                  Verify ABHA
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                Linked Citizen Profile: <b>Suresh Kumar, 54 / Male</b> (Phone: +91 98765 43210)
+              </p>
+            </div>
+
+            <!-- Quick Preset Switcher for Testing -->
+            <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800 text-xs">
+              <span class="text-slate-400 block mb-2 font-semibold">Test Patient Demo Presets:</span>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="document.getElementById('kiosk-abha-input').value='91-4521-8890-1234'; alert('Selected: Suresh Kumar (Cardiac History / Chronic review)')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">
+                  Preset 1: Suresh Kumar (Chest Discomfort, Diabetes)
+                </button>
+                <button onclick="document.getElementById('kiosk-abha-input').value='14-9982-3341-7789'; alert('Selected: Rajesh Verma (Acute STEMI Red-Flag demo)')" class="px-3 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-500/30 text-[11px]">
+                  Preset 2: Rajesh Verma (Red-Flag Emergency ACS)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: DPDP Act 2023 Audio-Guided Consent -->
+          <div class="p-5 bg-gradient-to-br from-slate-950 to-slate-900 rounded-2xl border border-cyan-500/30 shadow-xl space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                DPDP Act 2023 Consent Notice
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">Zero-Retention Architecture</span>
+            </div>
+
+            <!-- Spoken Audio Player Button -->
+            <button id="btn-play-audio-consent" onclick="window.kiosk.playAudioConsent()" class="w-full py-3 px-4 rounded-xl bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-500/40 flex items-center justify-center gap-2 font-bold text-sm transition-all shadow-md">
+              <svg class="w-5 h-5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+              <span>Play Spoken Audio Consent (Audio-Guided for Low Literacy)</span>
+            </button>
+
+            <!-- Explanation Text -->
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-32 overflow-y-auto">
+              <p id="audio-consent-text">
+                Audio Explanation: Under DPDP Act 2023, your voice and medical records are collected solely for this consultation and linked to your ABHA account. Data will be transmitted to the hospital HIS securely and purged from this kiosk immediately after submission. Do you consent?
+              </p>
+            </div>
+
+            <!-- Granular Consent Checkboxes -->
+            <div class="space-y-2 text-xs text-slate-300">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500 w-4 h-4">
+                <span>Consent to conversational voice & symptom capture</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500 w-4 h-4">
+                <span>Consent to OCR scanning and clinical entity linking to ABHA</span>
+              </label>
+            </div>
+
+            <!-- Grant Consent Button -->
+            <button onclick="window.kiosk.grantConsent()" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2">
+              <span>Grant Explicit Consent & Begin History Interview &rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: CONVERSE (MULTIMODAL VOICE & TOUCH) -->
+      <div id="kiosk-step-2" class="hidden p-6 md:p-8 bg-slate-900/90 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Step 2 — Converse (Module A)</span>
+            <h2 class="text-2xl font-black text-white mt-1">Adaptive Multimodal Clinical Interview</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Answer by speaking naturally in your language OR tapping the large touch options below.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-xs text-slate-400">Chief Complaint:</label>
+            <select id="kiosk-complaint-select" onchange="window.conversationEngine.setComplaint(this.value)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none">
+              <option value="chest_pain">Chest Pain / छाती में दर्द (SOCRATES)</option>
+              <option value="cough_fever">Cough & Fever / खांसी और बुखार</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Question & Dual Mode Options Container -->
+        <div id="kiosk-question-container">
+          <!-- Rendered dynamically by conversationEngine -->
+        </div>
+
+        <!-- Voice Input Console -->
+        <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <!-- Pulsing Mic Button -->
+            <div class="relative">
+              <button id="kiosk-mic-btn" onclick="window.kiosk.toggleMicrophone()" class="relative z-10 w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-teal-400 hover:from-cyan-500 hover:to-teal-300 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/30 transition-all">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+              </button>
+              <span id="kiosk-mic-pulse" class="hidden absolute inset-0 rounded-full bg-cyan-400/40 mic-pulse-ring"></span>
+            </div>
+
+            <div>
+              <span class="text-xs font-bold text-white block">Dual-Mode Voice Capture (Bhashini / ASR)</span>
+              <p id="kiosk-voice-status" class="text-xs text-cyan-400 font-medium">Tap microphone to speak in your language, or tap any touch card above.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="window.kiosk.goToStep(3)" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all">
+              Skip to Document Scan &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: SCAN & DIGITIZE (MODULE B) -->
+      <div id="kiosk-step-3" class="hidden p-6 md:p-8 bg-slate-900/90 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Step 3 — Scan & Digitize (Module B)</span>
+            <h2 class="text-2xl font-black text-white mt-1">Medical Document Digitization & OCR Intelligence</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Upload or scan physical prescriptions, NABL lab reports, and hospital discharge summaries.</p>
+          </div>
+
+          <!-- Document Selector -->
+          <div class="flex items-center gap-3">
+            <label class="text-xs text-slate-400">Select Document:</label>
+            <select id="doc-preset-select" onchange="window.kiosk.onSelectDocumentPreset(this.value)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none">
+              <option value="doc_rx_01">Prescription (Dr. Rajesh Sharma - MaxCare)</option>
+              <option value="doc_lab_02">Lab Report (Lipid & Metabolic Panel - NABL)</option>
+              <option value="doc_discharge_03">Discharge Summary (Apollo Heart Centre - Stent)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Scanner Console & Action -->
+        <div class="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+          <div class="flex items-center gap-3">
+            <button id="btn-scan-doc" onclick="window.kiosk.triggerDocScan()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 hover:to-teal-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+              <span>Run High-Accuracy OCR & Entity Extraction</span>
+            </button>
+            <span id="scanner-status-text" class="text-xs text-slate-300 font-medium">Ready to scan document.</span>
+          </div>
+
+          <button onclick="window.kiosk.goToStep(4)" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all">
+            <span>Proceed to Summary Synthesis &rarr;</span>
+          </button>
+        </div>
+
+        <!-- Document Preview with Scan Laser & Entity Columns -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left: Scanned Document Canvas -->
+          <div class="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-1">
+            <div id="scanner-laser" class="hidden scanner-laser-line"></div>
+            <div id="doc-preview-content">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Right: Extracted Entities, Timeline & Abnormal Highlights -->
+          <div class="space-y-4">
+            <!-- Abnormal Lab Alert Box -->
+            <div id="doc-abnormal-content" class="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Extracted Entities -->
+            <div id="doc-entities-content" class="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Medical Timeline -->
+            <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+              <span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider block mb-2">Chronological Patient Medical Timeline:</span>
+              <div id="doc-timeline-content">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: SUMMARIZE & ROUTE (MODULE C & D) -->
+      <div id="kiosk-step-4" class="hidden p-6 md:p-8 bg-slate-900/90 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest">Step 4 — Summarize & Route (Module C & D)</span>
+            <h2 class="text-2xl font-black text-white mt-1">Structured History Generated & Pushed to HIS</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Synthesized clinical summary is linked to your ABHA account and awaiting physician review in OPD Room 8.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="switchView('doctor-view')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+              <span>Switch to Doctor View (Step 5 Consult)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Structured Summary Preview Card -->
+        <div id="kiosk-summary-preview" class="p-6 bg-slate-950 rounded-2xl border border-slate-800">
+          <!-- Rendered dynamically by summarizer -->
+        </div>
+
+        <!-- Token Slip Printout -->
+        <div class="p-5 bg-gradient-to-r from-slate-900 to-slate-950 rounded-2xl border border-cyan-500/30 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-mono text-xl font-black">
+              T-24
+            </div>
+            <div>
+              <span class="text-xs font-bold text-white block">MediKiosk OPD Token Slip Generated</span>
+              <p class="text-xs text-slate-400">Patient: Suresh Kumar (54M) &bull; Room: Cardiology OPD 08 &bull; Queue Position: #2</p>
+              <span class="text-[11px] text-emerald-400 font-mono">&#10003; Local Kiosk Session Wiped (DPDP Zero-Retention Compliant)</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="alert('Printing MediKiosk Token Slip with QR Code...')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+              Print Token
+            </button>
+            <button onclick="window.kiosk.goToStep(1)" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-bold transition-all">
+              New Patient Session
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: DOCTOR OPD PORTAL (STEP 5 CONSULT)                                -->
+    <!-- ========================================================================= -->
+    <section id="doctor-view" class="hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Step 5 — Consult (Physician Workstation)</span>
+          <h2 class="text-2xl font-black text-white mt-1">Physician OPD Consultation Screen</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Instant 15-second structured history review. The physician reads, amends, and signs before patient enters.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-300 font-mono bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+            Clinic: Internal Medicine &bull; OPD Room 08
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Patient Queue Sidebar -->
+        <div class="lg:col-span-1 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Live OPD Queue (Kiosk Synced)</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">3 Waiting</span>
+          </div>
+          <div id="doctor-patient-queue" class="space-y-2.5">
+            <!-- Rendered dynamically by doctorPortal -->
+          </div>
+        </div>
+
+        <!-- Consultation & Summary Review Area -->
+        <div class="lg:col-span-3">
+          <div id="doctor-summary-container">
+            <!-- Rendered dynamically by doctorPortal -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: SOFTWARE & AI STACK (TABLE 3.2 & 3.3 SPECIFICATIONS)             -->
+    <!-- ========================================================================= -->
+    <section id="stack-view" class="hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Specifications & Architecture</span>
+          <h2 class="text-2xl font-black text-white mt-1">Table 3.2 & 3.3: Integrated Software & AI Stack</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Comprehensive architecture matrix across Modules A, B, C, and D detailing AI models, performance SLAs, and standards.</p>
+        </div>
+
+        <!-- Filter Buttons -->
+        <div class="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+          <button onclick="window.stackExplorer.setFilter('all')" class="px-3 py-1.5 rounded-lg font-semibold text-cyan-300 bg-cyan-500/20">All Modules</button>
+          <button onclick="window.stackExplorer.setFilter('module_a')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white">Module A (Voice)</button>
+          <button onclick="window.stackExplorer.setFilter('module_b')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white">Module B (Doc AI)</button>
+          <button onclick="window.stackExplorer.setFilter('module_c')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white">Module C (Summary)</button>
+          <button onclick="window.stackExplorer.setFilter('module_d')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white">Module D (ABDM)</button>
+        </div>
+      </div>
+
+      <!-- Architectural Data Flow Diagram -->
+      <div class="p-6 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-4">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+          MediKiosk End-to-End Software Architecture Pipeline
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300">Module A</span>
+            <h4 class="font-bold text-white">Multimodal Input</h4>
+            <p class="text-slate-400 leading-relaxed">Bhashini / IndicWav2Vec ASR streaming transcription + SOCRATES and Dashavidha Pariksha dialogue state tracking.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">Module B</span>
+            <h4 class="font-bold text-white">Document AI & OCR</h4>
+            <p class="text-slate-400 leading-relaxed">LayoutLMv3 + TrOCR multimodal pipeline extracting Rx, abnormal lab values, timeline, and drug interactions.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/20 text-teal-300">Module C</span>
+            <h4 class="font-bold text-white">Clinical Synthesizer</h4>
+            <p class="text-slate-400 leading-relaxed">Constrained medical LLM generating standardized physician draft (CC &rarr; HPI &rarr; ROS &rarr; Labs) in under 15s.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">Module D</span>
+            <h4 class="font-bold text-white">Consent & ABDM Sync</h4>
+            <p class="text-slate-400 leading-relaxed">DPDP 2023 audio consent, ABHA ID linking, FHIR R4 Bundle push to hospital EMR, and zero-retention memory purge.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specification Table Container -->
+      <div id="stack-table-container">
+        <!-- Rendered dynamically by stackExplorer -->
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 4: PATIENT JOURNEY FLOW (SECTION 3.4 VISUALIZER)                    -->
+    <!-- ========================================================================= -->
+    <section id="journey-view" class="hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Section 3.4 — End-to-End Patient Journey</span>
+          <h2 class="text-2xl font-black text-white mt-1">Five-Step Patient Consultation Journey</h2>
+          <p class="text-xs text-slate-400 mt-0.5">From kiosk arrival to physician examination: minimal staff assistance with maximum clinical throughput.</p>
+        </div>
+      </div>
+
+      <!-- 5 Step Visual Flowchart -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
+        <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-lg">
+          <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-sm">1</div>
+          <h3 class="font-bold text-white text-sm">Step 1 — Identify</h3>
+          <p class="text-slate-300 leading-relaxed">Patient logs in via ABHA ID or Aadhaar, selects preferred language, and grants audio-guided consent under DPDP Act 2023.</p>
+          <span class="inline-block text-[10px] text-cyan-400 font-mono">Time: ~45 seconds</span>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-lg">
+          <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-sm">2</div>
+          <h3 class="font-bold text-white text-sm">Step 2 — Converse</h3>
+          <p class="text-slate-300 leading-relaxed">AI conducts adaptive voice + touch history interview (SOCRATES or AYUSH). Emergency red-flag symptoms trigger immediate triage.</p>
+          <span class="inline-block text-[10px] text-cyan-400 font-mono">Time: ~2 minutes</span>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-lg">
+          <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-sm">3</div>
+          <h3 class="font-bold text-white text-sm">Step 3 — Scan</h3>
+          <p class="text-slate-300 leading-relaxed">Patient uploads prescriptions and lab reports. AI digitizes, extracts entities, highlights abnormal values, and builds timeline.</p>
+          <span class="inline-block text-[10px] text-indigo-400 font-mono">Time: ~1 minute</span>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-lg">
+          <div class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-sm">4</div>
+          <h3 class="font-bold text-white text-sm">Step 4 — Route</h3>
+          <p class="text-slate-300 leading-relaxed">AI synthesizes clinical summary, links to ABHA PHR, pushes FHIR bundle to HIS, and prints token slip.</p>
+          <span class="inline-block text-[10px] text-teal-400 font-mono">Time: ~10 seconds</span>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 space-y-3 shadow-lg">
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-sm">5</div>
+          <h3 class="font-bold text-white text-sm">Step 5 — Consult</h3>
+          <p class="text-slate-300 leading-relaxed">Physician reads complete history in 15 seconds, verifies draft, and devotes full consultation to clinical examination and counseling.</p>
+          <span class="inline-block text-[10px] text-emerald-400 font-mono">Saved: 65% OPD Time</span>
+        </div>
+      </div>
+
+      <!-- Clinical & Operational Impact Metrics -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+        <div class="p-5 bg-slate-900/90 rounded-2xl border border-slate-800 text-center">
+          <span class="text-3xl font-black text-cyan-400 block mb-1">65%</span>
+          <span class="text-xs text-slate-300 font-semibold">Consultation Time Saved</span>
+          <p class="text-[11px] text-slate-500 mt-1">Physician bypasses manual history typing</p>
+        </div>
+        <div class="p-5 bg-slate-900/90 rounded-2xl border border-slate-800 text-center">
+          <span class="text-3xl font-black text-emerald-400 block mb-1">94.2%</span>
+          <span class="text-xs text-slate-300 font-semibold">Entity Extraction Accuracy</span>
+          <p class="text-[11px] text-slate-500 mt-1">TrOCR & LayoutLMv3 multilingual model</p>
+        </div>
+        <div class="p-5 bg-slate-900/90 rounded-2xl border border-slate-800 text-center">
+          <span class="text-3xl font-black text-rose-400 block mb-1">&lt; 50ms</span>
+          <span class="text-xs text-slate-300 font-semibold">Red-Flag Triage Response</span>
+          <p class="text-[11px] text-slate-500 mt-1">Instant priority triage rerouting</p>
+        </div>
+        <div class="p-5 bg-slate-900/90 rounded-2xl border border-slate-800 text-center">
+          <span class="text-3xl font-black text-indigo-400 block mb-1">100%</span>
+          <span class="text-xs text-slate-300 font-semibold">DPDP 2023 & ABDM Compliant</span>
+          <p class="text-[11px] text-slate-500 mt-1">Zero-retention ephemeral session</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: RED-FLAG EMERGENCY TRIAGE ALERT                                    -->
+  <!-- ========================================================================= -->
+  <div id="red-flag-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="max-w-lg w-full bg-slate-950 rounded-3xl border-2 border-rose-500 shadow-2xl emergency-siren-box p-6 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+          <svg class="w-8 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        </div>
+        <div>
+          <span class="text-xs font-black text-rose-400 uppercase tracking-widest block">EMERGENCY RED-FLAG TRIAGE</span>
+          <h3 class="text-xl font-black text-white">Priority 1 Critical Symptoms Detected</h3>
+        </div>
+      </div>
+
+      <div id="red-flag-body">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button onclick="window.kiosk.dismissRedFlagModal()" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition-all">
+          Acknowledge & Continue to Emergency Triage Bay
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: FHIR R4 BUNDLE INSPECTOR                                          -->
+  <!-- ========================================================================= -->
+  <div id="fhir-bundle-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="max-w-3xl w-full bg-slate-950 rounded-3xl border border-slate-800 shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+          <h3 class="text-base font-bold text-white">ABDM FHIR R4 DocumentBundle Inspector</h3>
+        </div>
+        <button onclick="window.doctorPortal.closeFhirModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto bg-slate-900/90 p-4 rounded-xl border border-slate-800 font-mono text-xs text-cyan-300">
+        <pre id="fhir-bundle-json" class="whitespace-pre-wrap"></pre>
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <span class="text-[11px] text-slate-400 font-mono">Profile: https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle</span>
+        <div class="flex items-center gap-2">
+          <button onclick="window.doctorPortal.copyFhirJson()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-all">
+            Copy JSON
+          </button>
+          <button onclick="window.doctorPortal.closeFhirModal()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition-all">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/data/ontologies.js"></script>
+  <script src="js/data/sampleDocuments.js"></script>
+  <script src="js/data/stackData.js"></script>
+  <script src="js/modules/voiceEngine.js"></script>
+  <script src="js/modules/conversationEngine.js"></script>
+  <script src="js/modules/documentAI.js"></script>
+  <script src="js/modules/summarizer.js"></script>
+  <script src="js/modules/doctorPortal.js"></script>
+  <script src="js/modules/stackExplorer.js"></script>
+  <script src="js/modules/kioskController.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
