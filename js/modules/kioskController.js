@@ -1,6 +1,7 @@
 /**
- * MediKiosk Platform - Kiosk Controller (Steps 1, 2, 3, 4)
- * Coordinates Patient Journey, Multimodal Input, Audio Consent, and Screen Flow
+ * MediKiosk Platform - Kiosk Controller (SIH Edition)
+ * Manages Split-Screen Check-In, Dr. Meera AI Assistant, Skip Identity,
+ * Adaptive Interview, OCR Scanner & Printable OPD Token Receipt
  */
 
 class KioskController {
@@ -10,18 +11,25 @@ class KioskController {
     this.documentAIEngine = documentAIEngine;
     this.summarizer = summarizer;
 
-    this.currentStep = 1; // 1: Identify, 2: Converse, 3: Scan, 4: Summarize
+    this.currentStep = 1; // 1: Login & Talk to MediKiosk, 2: Converse, 3: Scan, 4: Summary & Receipt
     this.patientProfile = {
       name: "Suresh Kumar",
       age: 54,
       gender: "Male",
       abhaId: "91-4521-8890-1234",
       mobile: "+91 98765 43210",
-      aadhaarLast4: "8890",
-      language: "en",
-      consentGranted: false,
+      language: "hi",
+      isGuest: false,
       isEmergency: false
     };
+
+    this.chatMessages = [
+      {
+        sender: 'assistant',
+        time: 'Just now',
+        text: "नमस्ते! मैं डॉ. मीरा हूँ, आपकी मेडीकियोस्क एआई सहायक। आप कैसा महसूस कर रहे हैं? कृपया मुझे अपनी परेशानी बताएं, या नीचे 'क्लिनिकल हिस्ट्री शुरू करें' पर क्लिक करें।"
+      }
+    ];
 
     this.initCallbacks();
   }
@@ -35,9 +43,16 @@ class KioskController {
       this.renderQuestion(question);
     };
 
+    this.conversationEngine.onVoiceParsed = (spokenText, extractedEntities) => {
+      this.renderSpokenEntities(spokenText, extractedEntities);
+    };
+
     this.conversationEngine.onInterviewComplete = (answers) => {
       this.voiceEngine.playChime('success');
-      this.voiceEngine.speak("Thank you. Conversational history recorded. Let us now scan your prior medical documents.");
+      const msg = this.patientProfile.language === 'hi'
+        ? "बहुत-बहुत धन्यवाद! आपका क्लिनिकल इतिहास रिकॉर्ड हो गया है। अब कृपया पिछले पर्चे या टेस्ट रिपोर्ट को स्कैनर पर रखें।"
+        : "Thank you very much! Your conversational clinical history is recorded. Please place your prior prescription or lab reports on the scanner.";
+      this.voiceEngine.speak(msg);
       this.goToStep(3);
     };
   }
@@ -45,61 +60,172 @@ class KioskController {
   setLanguage(langCode) {
     this.patientProfile.language = langCode;
     this.voiceEngine.setLanguage(langCode);
-    const audioConsentTextEl = document.getElementById('audio-consent-text');
-    if (audioConsentTextEl) {
-      audioConsentTextEl.textContent = this.voiceEngine.getText('audioConsentText');
-    }
+    const greeting = this.voiceEngine.assistantPhrases[langCode]
+      ? this.voiceEngine.assistantPhrases[langCode].greeting
+      : this.voiceEngine.assistantPhrases.en.greeting;
+
+    this.chatMessages.push({
+      sender: 'assistant',
+      time: 'Just now',
+      text: greeting
+    });
+    this.renderChatMessages();
+    this.voiceEngine.speak(greeting);
   }
 
-  playAudioConsent() {
-    const consentText = this.voiceEngine.getText('audioConsentText');
-    const playBtn = document.getElementById('btn-play-audio-consent');
-    if (playBtn) {
-      playBtn.classList.add('animate-pulse', 'bg-cyan-600');
-      playBtn.innerHTML = `
-        <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-        <span>Playing Audio Explanation (${this.patientProfile.language.toUpperCase()})...</span>
-      `;
-    }
+  /**
+   * Save patient login details from form
+   */
+  submitPatientLogin() {
+    const abhaInput = document.getElementById('kiosk-abha-input');
+    const nameInput = document.getElementById('kiosk-name-input');
+    const ageInput = document.getElementById('kiosk-age-input');
+    const genderSelect = document.getElementById('kiosk-gender-select');
+    const mobileInput = document.getElementById('kiosk-mobile-input');
 
-    this.voiceEngine.speak(consentText, () => {
-      if (playBtn) {
-        playBtn.classList.remove('animate-pulse', 'bg-cyan-600');
-        playBtn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
-          </svg>
-          <span>Replay Spoken Consent</span>
-        `;
-      }
+    if (abhaInput && abhaInput.value) this.patientProfile.abhaId = abhaInput.value;
+    if (nameInput && nameInput.value) this.patientProfile.name = nameInput.value;
+    if (ageInput && ageInput.value) this.patientProfile.age = parseInt(ageInput.value) || 54;
+    if (genderSelect) this.patientProfile.gender = genderSelect.value;
+    if (mobileInput && mobileInput.value) this.patientProfile.mobile = mobileInput.value;
+    this.patientProfile.isGuest = false;
+
+    this.voiceEngine.playChime('success');
+    const welcomeMsg = `नमस्ते ${this.patientProfile.name} जी! आपका आभा रिकॉर्ड सत्यापित हो चुका है। कृपया अपनी समस्या बताएं या क्लिनिकल हिस्ट्री शुरू करें।`;
+    this.addAssistantMessage(welcomeMsg);
+    this.voiceEngine.speak(welcomeMsg);
+  }
+
+  /**
+   * Skip Identity Option (Anonymous / Emergency Guest)
+   */
+  skipIdentity() {
+    this.patientProfile.name = "Guest Patient (अनाम मरीज़)";
+    this.patientProfile.age = 45;
+    this.patientProfile.gender = "Unspecified";
+    this.patientProfile.abhaId = "GUEST-OPD-99";
+    this.patientProfile.mobile = "Not Provided";
+    this.patientProfile.isGuest = true;
+
+    this.voiceEngine.playChime('beep');
+    const skipNotice = "पहचान विवरण छोड़ दिया गया है। आपको अस्थायी गेस्ट टोकन #GUEST-99 जारी किया गया है। आइए सीधे आपकी बीमारी का इतिहास समझते हैं।";
+    this.addAssistantMessage(skipNotice);
+    this.voiceEngine.speak(skipNotice, () => {
+      this.goToStep(2);
     });
   }
 
-  grantConsent() {
-    this.patientProfile.consentGranted = true;
-    this.voiceEngine.stopSpeaking();
+  /**
+   * Send a chat message to Dr. Meera
+   */
+  sendChatMessage(customText = null) {
+    const input = document.getElementById('chat-user-input');
+    const text = customText || (input ? input.value.trim() : '');
+    if (!text) return;
+
+    if (input && !customText) input.value = '';
+
+    // Add user message to log
+    this.chatMessages.push({
+      sender: 'user',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text: text
+    });
+    this.renderChatMessages();
+
+    // AI Dr. Meera analyzes and replies politely
+    this.conversationEngine.parseSpokenVoiceInput(text);
+
+    setTimeout(() => {
+      let reply = "";
+      const lower = text.toLowerCase();
+      if (lower.includes('seene') || lower.includes('chest') || lower.includes('दर्द') || lower.includes('pain')) {
+        reply = "मैं समझ सकती हूँ, सीने में दर्द काफी चिंताजनक हो सकता है। क्या यह दर्द बाएं हाथ या जबड़े की तरफ फैल रहा है? कृपया नीचे 'क्लिनिकल हिस्ट्री शुरू करें' पर क्लिक करें ताकि हम पूरा विवरण व्यवस्थित कर सकें।";
+      } else if (lower.includes('khansi') || lower.includes('cough') || lower.includes('fever') || lower.includes('बुखार')) {
+        reply = "जी, खांसी और बुखार की समस्या को दर्ज कर लिया गया है। क्या आपको सांस लेने में भी कोई तकलीफ हो रही है? आइए कुछ और सवाल पूछकर डॉक्टर साहब के लिए रिपोर्ट तैयार करते हैं।";
+      } else {
+        reply = "जी, मैंने आपकी बात ध्यानपूर्वक नोट कर ली है। आपकी बीमारी को गहराई से समझने के लिए नीचे दिए गए बटन से क्लिनिकल सवाल शुरू करें।";
+      }
+
+      this.addAssistantMessage(reply);
+      this.voiceEngine.speak(reply);
+    }, 600);
+  }
+
+  addAssistantMessage(text) {
+    this.chatMessages.push({
+      sender: 'assistant',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text: text
+    });
+    this.renderChatMessages();
+  }
+
+  renderChatMessages() {
+    const log = document.getElementById('chat-messages-log');
+    if (!log) return;
+
+    log.innerHTML = this.chatMessages.map(m => {
+      const isAssistant = m.sender === 'assistant';
+      return `
+        <div class="flex items-start gap-2.5 ${isAssistant ? '' : 'flex-row-reverse'}">
+          ${isAssistant ? `
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center shadow flex-shrink-0 avatar-breathing">
+              👩‍⚕️
+            </div>
+          ` : `
+            <div class="w-8 h-8 rounded-full bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center shadow flex-shrink-0">
+              👤
+            </div>
+          `}
+          <div class="max-w-[82%] p-3 rounded-2xl text-xs leading-relaxed ${
+            isAssistant
+              ? 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none shadow-sm'
+              : 'bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-tr-none shadow-md'
+          }">
+            <div class="flex items-center justify-between gap-2 mb-1 text-[10px] ${isAssistant ? 'text-cyan-400 font-semibold' : 'text-cyan-200'}">
+              <span>${isAssistant ? 'डॉ. मीरा (Dr. Meera - AI)' : (this.patientProfile.name || 'You')}</span>
+              <span class="opacity-70">${m.time}</span>
+            </div>
+            <p>${m.text}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    log.scrollTop = log.scrollHeight;
+  }
+
+  /**
+   * Start the full Clinical History Questioning (SOCRATES / AYUSH)
+   */
+  startClinicalInterview() {
     this.voiceEngine.playChime('success');
-    this.goToStep(2);
+    const startMsg = this.voiceEngine.assistantPhrases[this.patientProfile.language]
+      ? this.voiceEngine.assistantPhrases[this.patientProfile.language].startInterview
+      : this.voiceEngine.assistantPhrases.hi.startInterview;
+
+    this.addAssistantMessage(startMsg);
+    this.voiceEngine.speak(startMsg, () => {
+      this.goToStep(2);
+    });
   }
 
   goToStep(stepNumber) {
     this.currentStep = stepNumber;
-    // Update step progress indicator
+
     for (let i = 1; i <= 4; i++) {
       const stepBadge = document.getElementById(`step-badge-${i}`);
       const stepCard = document.getElementById(`kiosk-step-${i}`);
       if (stepBadge) {
         if (i < stepNumber) {
-          stepBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-semibold";
+          stepBadge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold";
           stepBadge.querySelector('.step-num').innerHTML = '&#10003;';
         } else if (i === stepNumber) {
-          stepBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 text-xs font-semibold shadow-lg shadow-cyan-500/10";
+          stepBadge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/20 text-xs";
           stepBadge.querySelector('.step-num').textContent = i;
         } else {
-          stepBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/60 text-xs font-semibold";
+          stepBadge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 text-slate-400 border border-slate-700/60 text-xs font-medium";
           stepBadge.querySelector('.step-num').textContent = i;
         }
       }
@@ -112,14 +238,15 @@ class KioskController {
       }
     }
 
-    // Step-specific initializations
-    if (stepNumber === 2) {
-      const initialQ = this.conversationEngine.getCurrentQuestion();
-      this.renderQuestion(initialQ);
+    if (stepNumber === 1) {
+      this.renderChatMessages();
+    } else if (stepNumber === 2) {
+      const q = this.conversationEngine.getCurrentQuestion();
+      this.renderQuestion(q);
     } else if (stepNumber === 3) {
       this.renderDocumentScanner();
     } else if (stepNumber === 4) {
-      this.renderSummaryAndRouting();
+      this.renderSummaryAndReceipt();
     }
   }
 
@@ -129,56 +256,54 @@ class KioskController {
     if (!container) return;
 
     const lang = this.patientProfile.language;
-    const promptText = (q.prompt && q.prompt[lang]) ? q.prompt[lang] : (q.prompt ? q.prompt.en : q.description || q.title);
+    const promptText = (q.prompt && q.prompt[lang]) ? q.prompt[lang] : (q.prompt ? q.prompt.hi || q.prompt.en : q.title);
 
-    // Speak the question prompt
+    // Dr. Meera speaks the question prompt
     this.voiceEngine.speak(promptText);
 
     let html = `
-      <div class="mb-5">
+      <div class="mb-4">
         <div class="flex items-center justify-between gap-3 mb-2">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            ${this.conversationEngine.mode === 'ayush' ? 'AYUSH Dashavidha Pariksha' : `SOCRATES Framework Vector [${q.socratesLetter || 'Q'}]`}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+            ${this.conversationEngine.mode === 'ayush' ? 'AYUSH Dashavidha Pariksha' : `SOCRATES Vector [${q.socratesLetter || 'Q'}]`}
           </span>
           <span class="text-xs text-slate-400">
-            Step ${this.conversationEngine.currentQuestionIndex + 1} of ${this.conversationEngine.getQuestionsList().length}
+            प्रश्न ${this.conversationEngine.currentQuestionIndex + 1} / ${this.conversationEngine.getQuestionsList().length}
           </span>
         </div>
-        <h3 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <button onclick="window.kiosk.replayQuestionPrompt()" title="Listen to question" class="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-all">
+        <h3 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+          <button onclick="window.kiosk.replayQuestionPrompt()" title="Listen again" class="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3-9H5a1 1 0 00-1 1v4a1 1 0 001 1h4l5 5V4L9 9z"></path>
             </svg>
           </button>
           <span>${promptText}</span>
         </h3>
-        <p class="text-xs text-slate-400 mt-1">${q.title}</p>
       </div>
 
-      <!-- Dual Mode Touch Options -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+      <!-- Touch Option Chips -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
     `;
 
-    q.options.forEach((opt, idx) => {
+    q.options.forEach(opt => {
       const optKey = opt.key || opt.label;
-      const redBadge = opt.redFlagScore >= 3
-        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">Emergency Risk</span>`
-        : '';
+      const isRed = opt.redFlagScore >= 3;
 
       html += `
         <button onclick="window.kiosk.selectOption('${optKey}')"
-          class="flex flex-col items-start p-4 rounded-xl bg-slate-800/80 hover:bg-cyan-950/40 border border-slate-700 hover:border-cyan-500/50 transition-all text-left group shadow-sm hover:shadow-cyan-500/10">
-          <div class="flex items-center justify-between w-full mb-1">
-            <span class="text-sm font-semibold text-slate-200 group-hover:text-cyan-300">${opt.label}</span>
-            ${redBadge}
+          class="flex flex-col items-start p-3.5 rounded-xl bg-slate-800/80 hover:bg-cyan-950/40 border ${
+            isRed ? 'border-rose-500/40 hover:border-rose-500' : 'border-slate-700 hover:border-cyan-500/50'
+          } transition-all text-left shadow-sm hover:shadow-cyan-500/10">
+          <div class="flex items-center justify-between w-full mb-0.5">
+            <span class="text-sm font-semibold text-slate-200">${opt.label}</span>
+            ${isRed ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400">Emergency Risk</span>` : ''}
           </div>
-          ${opt.traits || opt.symptoms || opt.score ? `<p class="text-xs text-slate-400">${opt.traits || opt.symptoms || opt.score}</p>` : ''}
+          ${opt.traits || opt.symptoms ? `<p class="text-xs text-slate-400">${opt.traits || opt.symptoms}</p>` : ''}
         </button>
       `;
     });
 
     html += `</div>`;
-
     container.innerHTML = html;
   }
 
@@ -186,7 +311,7 @@ class KioskController {
     const q = this.conversationEngine.getCurrentQuestion();
     if (q) {
       const lang = this.patientProfile.language;
-      const promptText = (q.prompt && q.prompt[lang]) ? q.prompt[lang] : (q.prompt ? q.prompt.en : q.description || q.title);
+      const promptText = (q.prompt && q.prompt[lang]) ? q.prompt[lang] : (q.prompt ? q.prompt.hi || q.prompt.en : q.title);
       this.voiceEngine.speak(promptText);
     }
   }
@@ -196,62 +321,81 @@ class KioskController {
     this.conversationEngine.recordAnswer(optKey);
   }
 
+  /**
+   * Microphone Toggle with Waveform
+   */
   toggleMicrophone() {
-    const micBtn = document.getElementById('kiosk-mic-btn');
     const micPulse = document.getElementById('kiosk-mic-pulse');
+    const waveContainer = document.getElementById('voice-wave-container');
     const voiceStatus = document.getElementById('kiosk-voice-status');
+    const micBtn = document.getElementById('kiosk-mic-btn');
 
     if (this.voiceEngine.isListening) {
       this.voiceEngine.stopListening();
       if (micPulse) micPulse.classList.add('hidden');
-      if (voiceStatus) voiceStatus.textContent = "Tap microphone to speak your answer";
+      if (waveContainer) waveContainer.classList.add('hidden');
+      if (micBtn) micBtn.classList.remove('mic-active-pulse');
+      if (voiceStatus) voiceStatus.textContent = "माइक दबाकर अपनी बीमारी या दर्द के बारे में बोलें (Tap to speak)";
     } else {
       if (micPulse) micPulse.classList.remove('hidden');
-      if (voiceStatus) voiceStatus.textContent = this.voiceEngine.getText('micListening');
+      if (waveContainer) waveContainer.classList.remove('hidden');
+      if (micBtn) micBtn.classList.add('mic-active-pulse');
+      if (voiceStatus) voiceStatus.textContent = "डॉ. मीरा सुन रही हैं... कृपया बोलिए (Dr. Meera is listening...)";
 
       this.voiceEngine.startListening(
         (interim) => {
-          if (voiceStatus) voiceStatus.textContent = `"${interim}..."`;
+          if (voiceStatus) voiceStatus.innerHTML = `<span class="text-cyan-300 font-bold">आप बोल रहे हैं:</span> "${interim}"`;
         },
         (final) => {
-          if (voiceStatus) voiceStatus.textContent = `Heard: "${final}"`;
           if (micPulse) micPulse.classList.add('hidden');
+          if (waveContainer) waveContainer.classList.add('hidden');
+          if (micBtn) micBtn.classList.remove('mic-active-pulse');
 
-          // Match voice transcript to closest option or record voice free-text
-          const q = this.conversationEngine.getCurrentQuestion();
-          if (q && q.options.length > 0) {
-            let matchedOpt = q.options[0];
-            const lower = final.toLowerCase();
-            for (const opt of q.options) {
-              const labelLower = opt.label.toLowerCase();
-              if (lower.includes('crush') || lower.includes('heavy') || lower.includes('दबाव') || lower.includes('chest') || lower.includes('बीच')) {
-                matchedOpt = q.options[0];
-                break;
-              }
-              if (lower.includes('sweat') || lower.includes('breath') || lower.includes('पसीना') || lower.includes('सांस')) {
-                matchedOpt = q.options.find(o => o.key === 'sweat_and_dyspnoea') || q.options[0];
-                break;
-              }
-              if (lower.includes(opt.key)) {
-                matchedOpt = opt;
-                break;
-              }
-            }
-            this.conversationEngine.recordAnswer(matchedOpt.key || matchedOpt.label, final);
+          if (voiceStatus) voiceStatus.innerHTML = `<span class="text-cyan-300 font-bold">रिकॉर्ड हुआ:</span> "${final}"`;
+
+          // If in Step 1, send as chat message; if in Step 2, record answer
+          if (this.currentStep === 1) {
+            this.sendChatMessage(final);
+          } else {
+            this.conversationEngine.parseSpokenVoiceInput(final);
           }
         },
         (err) => {
           if (micPulse) micPulse.classList.add('hidden');
-          if (voiceStatus) voiceStatus.textContent = "Voice captured or simulated.";
+          if (waveContainer) waveContainer.classList.add('hidden');
+          if (micBtn) micBtn.classList.remove('mic-active-pulse');
         }
       );
     }
   }
 
+  renderSpokenEntities(spokenText, extracted) {
+    const container = document.getElementById('voice-extracted-entities');
+    if (!container) return;
+
+    if (extracted.length === 0) return;
+
+    container.innerHTML = `
+      <div class="p-3 bg-cyan-950/50 border border-cyan-500/40 rounded-xl space-y-1.5 mb-3">
+        <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          आवाज़ से पहचाने गए क्लिनिकल लक्षण (Clinical Scribe Entities):
+        </span>
+        <div class="flex flex-wrap gap-2">
+          ${extracted.map(e => `
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-cyan-500/30 text-xs text-slate-200">
+              <span class="text-slate-400">${e.entity}:</span> <b class="text-cyan-300">${e.value}</b>
+            </span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   handleRedFlag(assessment) {
     this.patientProfile.isEmergency = true;
     this.voiceEngine.playChime('emergency');
-    this.voiceEngine.speak(this.voiceEngine.getText('emergencyAlertAudio'));
+    this.voiceEngine.speak(this.voiceEngine.assistantPhrases[this.patientProfile.language]?.redFlagAlert || this.voiceEngine.assistantPhrases.hi.redFlagAlert);
 
     const alertModal = document.getElementById('red-flag-modal');
     const alertBody = document.getElementById('red-flag-body');
@@ -259,29 +403,29 @@ class KioskController {
     if (alertModal && alertBody) {
       alertBody.innerHTML = `
         <div class="text-left space-y-3">
-          <div class="p-3 bg-rose-950/60 border border-rose-500/40 rounded-lg text-rose-200 text-sm">
-            <p class="font-bold text-rose-400 mb-1">&#9888; CRITICAL CLINICAL TRIAGE TRIGGER:</p>
-            <ul class="list-disc list-inside space-y-1 text-xs">
+          <div class="p-4 bg-rose-950/60 border border-rose-500/50 rounded-2xl text-rose-200 text-xs">
+            <p class="font-bold text-rose-400 text-sm mb-1">&#9888; गंभीर आपातकालीन ट्राइएज लक्षण (Emergency Red-Flag):</p>
+            <ul class="list-disc list-inside space-y-1">
               ${assessment.reasons.map(r => `<li>${r}</li>`).join('')}
             </ul>
           </div>
 
           <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-700">
-              <span class="text-slate-400 block mb-0.5">Emergency Token Assigned:</span>
-              <span class="text-lg font-black text-rose-400">#E-01 (STAT)</span>
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+              <span class="text-slate-400 block mb-0.5">इमरजेंसी टोकन:</span>
+              <span class="text-xl font-black text-rose-400">#E-01 (STAT)</span>
             </div>
-            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-700">
-              <span class="text-slate-400 block mb-0.5">Triage Allocation:</span>
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+              <span class="text-slate-400 block mb-0.5">प्राथमिकता वार्ड:</span>
               <span class="text-sm font-bold text-amber-300">Resuscitation Bay 1</span>
             </div>
           </div>
 
-          <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700 text-xs text-slate-300">
-            <p class="font-semibold text-white mb-1">Automated Protocol Triggered:</p>
-            <p>1. Priority notification broadcast to OPD Triage Nursing Station.<br>
-               2. STAT 12-Lead ECG cart requested to Bay 1.<br>
-               3. Routine queue bypassed — Physician workstation alerted with red flashing banner.</p>
+          <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700 text-xs text-slate-300">
+            <p class="font-semibold text-white mb-1">स्वचालित आपातकालीन कार्रवाई:</p>
+            <p>1. ओपीडी ट्राइएज नर्सिंग डेस्क पर अलर्ट प्रसारित किया गया।<br>
+               2. डॉक्टर के कंप्यूटर पर लाल चेतावनी ध्वज सक्रिय।<br>
+               3. 12-लीड ईसीजी कार्डियक कार्ट तैयार करने का आदेश।</p>
           </div>
         </div>
       `;
@@ -292,15 +436,10 @@ class KioskController {
   dismissRedFlagModal() {
     const alertModal = document.getElementById('red-flag-modal');
     if (alertModal) alertModal.classList.add('hidden');
-    // Proceed immediately to document scan or summary
     this.goToStep(3);
   }
 
   renderDocumentScanner() {
-    const docSelect = document.getElementById('doc-preset-select');
-    if (docSelect) {
-      docSelect.value = this.documentAIEngine.currentDoc ? this.documentAIEngine.currentDoc.id : 'doc_rx_01';
-    }
     this.updateDocumentDisplay(this.documentAIEngine.currentDoc);
   }
 
@@ -316,19 +455,19 @@ class KioskController {
 
     if (scanLaser) scanLaser.classList.remove('hidden');
     if (scanBtn) scanBtn.disabled = true;
-    if (scanStatus) scanStatus.textContent = "AI OCR Scanning in progress: Detecting layouts, tables & handwriting...";
+    if (scanStatus) scanStatus.textContent = "दस्तावेज़ स्कैनिंग जारी (LayoutLMv3 & TrOCR Scanning)...";
 
     const currentDocId = this.documentAIEngine.currentDoc ? this.documentAIEngine.currentDoc.id : 'doc_rx_01';
 
     this.documentAIEngine.simulateScan(
       currentDocId,
       (progress) => {
-        if (scanStatus) scanStatus.textContent = `LayoutLMv3 OCR Analyzing... ${progress}%`;
+        if (scanStatus) scanStatus.textContent = `OCR विश्लेषण जारी... ${progress}%`;
       },
       (scannedDoc) => {
         if (scanLaser) scanLaser.classList.add('hidden');
         if (scanBtn) scanBtn.disabled = false;
-        if (scanStatus) scanStatus.textContent = "Scan complete! Extracted clinical entities & flagged out-of-range values.";
+        if (scanStatus) scanStatus.textContent = "स्कैन पूर्ण! क्लिनिकल जानकारी और असामान्य वैल्यूज सुरक्षित कर ली गई हैं।";
         this.voiceEngine.playChime('success');
         this.updateDocumentDisplay(scannedDoc);
       }
@@ -338,102 +477,36 @@ class KioskController {
   updateDocumentDisplay(doc) {
     if (!doc) return;
     const previewContainer = document.getElementById('doc-preview-content');
-    const entitiesContainer = document.getElementById('doc-entities-content');
     const abnormalContainer = document.getElementById('doc-abnormal-content');
     const timelineContainer = document.getElementById('doc-timeline-content');
 
     if (previewContainer) {
       previewContainer.innerHTML = `
-        <div class="relative bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto max-h-[380px] shadow-inner">
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto max-h-[350px]">
           <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-800 text-[11px] text-cyan-400 font-semibold">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              ${doc.docQuality}
-            </span>
+            <span>&#10003; ${doc.docQuality}</span>
             <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300">${doc.previewImageBadge}</span>
           </div>
           <pre class="whitespace-pre-wrap font-sans text-xs text-slate-300">${doc.rawText}</pre>
-
-          <!-- OCR Bounding Box Overlays -->
-          <div class="mt-4 pt-3 border-t border-slate-800">
-            <p class="text-[11px] text-slate-400 mb-2 font-sans font-medium">LayoutLMv3 & TrOCR Detected Entity Bounding Boxes:</p>
-            <div class="flex flex-wrap gap-2">
-              ${doc.boundingBoxes.map(b => `
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-800/90 border ${b.flag ? 'border-rose-500/50 text-rose-300' : 'border-cyan-500/30 text-cyan-300'} text-[10px] font-sans">
-                  <span class="w-1.5 h-1.5 rounded-full ${b.flag ? 'bg-rose-400' : 'bg-cyan-400'}"></span>
-                  <b>[${b.label}]</b>: ${b.text.substring(0, 32)}... (${Math.round(b.conf * 100)}%)
-                </span>
-              `).join('')}
-            </div>
-          </div>
         </div>
       `;
     }
 
-    // Extracted Entities
-    if (entitiesContainer) {
-      const meds = this.documentAIEngine.getAllMedications();
-      const diags = this.documentAIEngine.getAllDiagnoses();
-      entitiesContainer.innerHTML = `
-        <div class="space-y-3 text-xs">
-          <div>
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Active Prescribed Medications:</span>
-            <div class="space-y-1.5">
-              ${meds.map(m => `
-                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/80 border border-slate-700/60">
-                  <span class="font-semibold text-white">${m.name} <span class="text-cyan-300">${m.dosage}</span></span>
-                  <span class="px-2 py-0.5 rounded bg-slate-700 text-slate-300 text-[10px]">${m.frequency} (${m.indication || 'Rx'})</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-          <div>
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Document Diagnoses (ICD-10 & SNOMED CT):</span>
-            <div class="flex flex-wrap gap-1.5">
-              ${diags.map(d => `
-                <span class="px-2 py-1 rounded-md bg-cyan-950/60 border border-cyan-500/30 text-cyan-200 text-[11px]">
-                  ${d.name} <span class="text-cyan-400 text-[10px]">[${d.icd10}]</span>
-                </span>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // Abnormal Lab Values & Drug Interactions
     if (abnormalContainer) {
       const abnormals = this.documentAIEngine.getAllAbnormalValues();
-      const drugWarnings = this.documentAIEngine.checkDrugInteractions();
-
       let html = `<div class="space-y-2 text-xs">`;
 
       if (abnormals.length > 0) {
-        html += `<span class="text-[11px] font-bold text-rose-400 uppercase tracking-wider block">Out-of-Range Lab Investigations:</span>`;
+        html += `<span class="text-xs font-bold text-rose-400 block uppercase tracking-wider">असामान्य टेस्ट परिणाम (Abnormal Lab Values):</span>`;
         abnormals.forEach(a => {
           html += `
-            <div class="flex items-center justify-between p-2 rounded-lg bg-rose-950/30 border border-rose-500/40 text-rose-200">
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/40 text-rose-200">
               <div>
                 <span class="font-bold text-white">${a.test}: </span>
                 <span class="text-rose-400 font-extrabold text-sm">${a.value} ${a.unit}</span>
-                <span class="text-[10px] text-slate-400 ml-1">(Ref: ${a.ref})</span>
+                <span class="text-[11px] text-slate-400 ml-1">(सामान्य: ${a.ref})</span>
               </div>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">${a.severity}</span>
-            </div>
-          `;
-        });
-      }
-
-      if (drugWarnings.length > 0) {
-        html += `<span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mt-3">Clinical Decision Alerts (Drug Interactions):</span>`;
-        drugWarnings.forEach(w => {
-          html += `
-            <div class="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/40 text-amber-200 text-[11px]">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-white">${w.drugA} + ${w.drugB}</span>
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${w.severity}</span>
-              </div>
-              <p class="text-[10px] text-slate-300">${w.description}</p>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">${a.severity}</span>
             </div>
           `;
         });
@@ -443,7 +516,6 @@ class KioskController {
       abnormalContainer.innerHTML = html;
     }
 
-    // Chronological Timeline
     if (timelineContainer) {
       const timeline = this.documentAIEngine.getChronologicalTimeline();
       timelineContainer.innerHTML = `
@@ -460,7 +532,7 @@ class KioskController {
     }
   }
 
-  renderSummaryAndRouting() {
+  renderSummaryAndReceipt() {
     const summary = this.summarizer.generateSummary(
       this.patientProfile,
       this.conversationEngine.patientAnswers,
@@ -472,64 +544,92 @@ class KioskController {
     if (summaryContainer) {
       summaryContainer.innerHTML = `
         <div class="space-y-4 text-xs">
-          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
-            <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">Chief Complaint & HPI (SOCRATES):</span>
-            <p class="text-slate-200 leading-relaxed">${summary.hpiNarrative}</p>
+          <!-- Chief Complaint & HPI -->
+          <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800 shadow-sm">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block mb-1">मुख्य समस्या एवं विवरण (Chief Complaint & HPI):</span>
+            <p class="text-slate-200 leading-relaxed text-sm">${summary.hpiNarrative}</p>
           </div>
 
+          <!-- Medications & Past History -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
-              <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">Active Regimen & Allergies:</span>
-              <ul class="list-disc list-inside space-y-0.5 text-slate-300">
-                ${summary.activeMedications.map(m => `<li><b>${m.name}</b> ${m.dosage}</li>`).join('')}
+            <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800">
+              <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block mb-1">वर्तमान दवाइयां (Active Medications):</span>
+              <ul class="list-disc list-inside space-y-1 text-slate-300">
+                ${summary.activeMedications.map(m => `<li><b>${m.name}</b> ${m.dosage} (${m.compliance})</li>`).join('')}
               </ul>
-              <p class="mt-2 text-rose-300 text-[11px]"><b>Allergy:</b> ${summary.allergies[0].allergen} (${summary.allergies[0].reaction})</p>
+              <p class="mt-2 text-rose-400 font-semibold">एलर्जी: ${summary.allergies[0].allergen}</p>
             </div>
 
-            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
-              <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">Prior Chronic Diagnoses:</span>
-              <ul class="list-disc list-inside space-y-0.5 text-slate-300">
-                ${summary.pastDiagnoses.map(d => `<li>${d.condition} <span class="text-slate-400 text-[10px]">(${d.duration})</span></li>`).join('')}
+            <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800">
+              <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block mb-1">पुरानी बीमारियां (Past History):</span>
+              <ul class="list-disc list-inside space-y-1 text-slate-300">
+                ${summary.pastDiagnoses.map(d => `<li>${d.condition} (${d.duration})</li>`).join('')}
               </ul>
             </div>
           </div>
 
-          ${summary.ayushProfile ? `
-            <div class="p-3 bg-emerald-950/40 rounded-xl border border-emerald-500/30">
-              <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">AYUSH Dashavidha Profile (आयुर्वेदिक मूल्यांकन):</span>
-              <div class="grid grid-cols-2 gap-2 text-[11px] text-emerald-200">
-                <div><b>Prakriti:</b> ${summary.ayushProfile.prakriti}</div>
-                <div><b>Vikriti:</b> ${summary.ayushProfile.vikriti}</div>
-                <div><b>Agni/Ahara:</b> ${summary.ayushProfile.aharaShakti}</div>
-                <div><b>Sattva:</b> ${summary.ayushProfile.sattva}</div>
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- ABDM & HIS Routing Status -->
-          <div class="p-3.5 bg-emerald-950/50 rounded-xl border border-emerald-500/40">
+          <!-- ABDM PHR Link -->
+          <div class="p-4 bg-emerald-950/40 rounded-2xl border border-emerald-500/40">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                ABDM Personal Health Record (PHR) & HIS Linked
+                आभा (ABHA) एवं अस्पताल EMR से सफलतापूर्वक लिंक किया गया
               </span>
-              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">FHIR R4 DocumentBundle</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">FHIR R4 Bundle Ready</span>
             </div>
-            <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-300">
-              <div><span class="text-slate-400 block text-[10px]">ABHA ID:</span> ${summary.patient.abhaId}</div>
-              <div><span class="text-slate-400 block text-[10px]">HIS Push Destination:</span> OPD Clinic Room #08</div>
-              <div><span class="text-slate-400 block text-[10px]">Kiosk Token:</span> <b class="text-white">${this.patientProfile.isEmergency ? 'STAT #E-01' : 'OPD-T24'}</b></div>
+            <p class="text-xs text-slate-300">यह संक्षिप्त विवरण ओपीडी कक्ष 8 में डॉ. विवेक मेहरा की कंप्यूटर स्क्रीन पर पहुंच चुका है।</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const tokenReceipt = document.getElementById('kiosk-token-receipt');
+    if (tokenReceipt) {
+      const isEmergency = this.patientProfile.isEmergency;
+      const tokenNo = isEmergency ? 'STAT #E-01' : (this.patientProfile.isGuest ? 'GUEST-OPD-99' : 'OPD-T24');
+
+      tokenReceipt.innerHTML = `
+        <div class="p-5 bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border ${isEmergency ? 'border-rose-500 shadow-rose-500/20' : 'border-cyan-500/40 shadow-cyan-500/10'} shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl ${isEmergency ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'} flex items-center justify-center font-mono text-xl font-black">
+              ${tokenNo}
+            </div>
+            <div>
+              <span class="text-sm font-bold text-white block">मेडीकियोस्क ओपीडी टोकन रसीद (MediKiosk Official OPD Receipt)</span>
+              <p class="text-xs text-slate-300">${this.patientProfile.name} (${this.patientProfile.age} वर्ष / ${this.patientProfile.gender}) &bull; कक्ष: कार्डियोलॉजी ओपीडी 08 &bull; कतार स्थिति: #2</p>
+              <div class="flex items-center gap-3 mt-1 text-[11px] text-emerald-400 font-mono">
+                <span>&#10003; ABHA ID: ${this.patientProfile.abhaId}</span>
+                <span>&#10003; DPDP 2023 Session Wiped</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- QR Code and Action Buttons -->
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-white rounded-xl shadow">
+              <svg class="w-12 h-12 text-slate-900" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h2v3h-2v-3zm2 3h3v2h-3v-2zm3 0h3v5h-2v-3h-1v-2zm-5 2h2v3h-2v-3zm2 3h3v2h-3v-2z"/>
+              </svg>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                रसीद प्रिंट करें (Print)
+              </button>
+              <button onclick="switchView('doctor-view')" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-bold transition-all shadow-md">
+                डॉक्टर स्क्रीन पर देखें &rarr;
+              </button>
             </div>
           </div>
         </div>
       `;
     }
 
-    // Play bilingual completion speech
-    const completionAudio = this.patientProfile.language === 'hi'
-      ? "आपका क्लिनिकल इतिहास सफलतापूर्वक संकलित कर लिया गया है और डॉक्टर के कंप्यूटर पर भेज दिया गया है। कृपया परामर्श कक्ष नंबर 8 में प्रतीक्षा करें।"
-      : "Your structured clinical history has been synthesized and transmitted directly to your physician's consultation screen. Please proceed to OPD Room 8.";
-    this.voiceEngine.speak(completionAudio);
+    const completionMsg = this.patientProfile.language === 'hi'
+      ? "आपकी क्लिनिकल हिस्ट्री तैयार होकर डॉक्टर के पास पहुंच गई है। आपकी टोकन रसीद तैयार है। कृपया ओपीडी कक्ष 8 में जाएं।"
+      : "Your clinical history has been summarized and pushed to your doctor's screen. Your token receipt is generated. Please proceed to OPD Room 8.";
+    this.voiceEngine.speak(completionMsg);
   }
 }
 

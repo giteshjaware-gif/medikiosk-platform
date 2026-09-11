@@ -1,6 +1,45 @@
-/* MediKiosk Platform - Clinical Styling & Interactive Animations */
+/* MediKiosk Platform - SIH Enterprise Medical Styling & Animations */
 
-@keyframes scanLaser {
+/* Base Theming Variables */
+:root {
+  --sidebar-w: 240px;
+  --header-h: 68px;
+}
+
+/* ECG Heartbeat Line Animation */
+@keyframes ecgPulse {
+  0% {
+    stroke-dashoffset: 600;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ecg-line {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: ecgPulse 3s linear infinite;
+}
+
+/* Avatar Breathing Glow */
+@keyframes avatarGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px 8px rgba(6, 182, 212, 0.2);
+    transform: scale(1.02);
+  }
+}
+
+.avatar-breathing {
+  animation: avatarGlow 3s ease-in-out infinite;
+}
+
+/* Scanning Laser Animation */
+@keyframes scanLaserLine {
   0% {
     top: 0%;
     opacity: 0.8;
@@ -15,68 +54,126 @@
   }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px 8px rgba(6, 182, 212, 0.2);
-  }
-}
-
-@keyframes sirenFlash {
-  0%, 100% {
-    border-color: rgba(244, 63, 94, 0.9);
-    box-shadow: 0 0 25px rgba(244, 63, 94, 0.6);
-  }
-  50% {
-    border-color: rgba(239, 68, 68, 0.3);
-    box-shadow: 0 0 5px rgba(239, 68, 68, 0.1);
-  }
-}
-
 .scanner-laser-line {
   position: absolute;
   left: 0;
   right: 0;
   height: 3px;
   background: linear-gradient(90deg, rgba(6, 182, 212, 0) 0%, #06b6d4 50%, rgba(6, 182, 212, 0) 100%);
-  box-shadow: 0 0 12px 3px #06b6d4;
-  animation: scanLaser 2.2s ease-in-out infinite;
+  box-shadow: 0 0 14px 4px rgba(6, 182, 212, 0.7);
+  animation: scanLaserLine 2s ease-in-out infinite;
   pointer-events: none;
   z-index: 20;
 }
 
-.mic-pulse-ring {
-  animation: pulseGlow 1.8s infinite;
+/* Voice Equalizer Waves */
+@keyframes waveOscillate {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 28px;
+  }
+}
+
+.soundwave-bar {
+  width: 4px;
+  border-radius: 9999px;
+  background: #06b6d4;
+  display: inline-block;
+  animation: waveOscillate 1.2s ease-in-out infinite;
+}
+
+.soundwave-bar:nth-child(1) { animation-delay: 0.1s; }
+.soundwave-bar:nth-child(2) { animation-delay: 0.3s; }
+.soundwave-bar:nth-child(3) { animation-delay: 0.2s; }
+.soundwave-bar:nth-child(4) { animation-delay: 0.4s; }
+.soundwave-bar:nth-child(5) { animation-delay: 0.15s; }
+.soundwave-bar:nth-child(6) { animation-delay: 0.35s; }
+.soundwave-bar:nth-child(7) { animation-delay: 0.25s; }
+
+/* Mic Pulse Ring */
+@keyframes micPulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(6, 182, 212, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+  }
+}
+
+.mic-active-pulse {
+  animation: micPulseRing 1.5s infinite;
+}
+
+/* Emergency Alert Flashing Box */
+@keyframes sirenFlashBorder {
+  0%, 100% {
+    border-color: rgba(244, 63, 94, 0.9);
+    box-shadow: 0 0 25px rgba(244, 63, 94, 0.5);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.1);
+  }
 }
 
 .emergency-siren-box {
-  animation: sirenFlash 1s infinite;
+  animation: sirenFlashBorder 1s infinite;
 }
 
-/* Custom Scrollbars */
+/* SOS Beacon Pulse */
+@keyframes sosBeacon {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px 6px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.sos-beacon {
+  animation: sosBeacon 1.4s infinite;
+}
+
+/* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
-  background: #0f172a;
+html.dark ::-webkit-scrollbar-track {
+  background: #090d16;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #334155;
+html.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
   border-radius: 9999px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html.dark ::-webkit-scrollbar-thumb:hover {
   background: #06b6d4;
 }
 
-/* Touch-optimized active states */
+html.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
+/* Active Button Scaling */
 button:active {
   transform: scale(0.98);
 }

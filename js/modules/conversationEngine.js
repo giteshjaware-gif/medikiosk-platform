@@ -1,6 +1,6 @@
 /**
- * MediKiosk Platform - Adaptive Conversational History Engine (Module A)
- * Implements SOCRATES clinical reasoning tree, AYUSH Dashavidha Pariksha, and Red-Flag Emergency Triage
+ * MediKiosk Platform - Adaptive Conversational History Engine (Module A - SIH Edition)
+ * Implements SOCRATES Framework, AYUSH Dashavidha Pariksha, and Red-Flag Emergency Triage
  */
 
 class ConversationEngine {
@@ -10,136 +10,102 @@ class ConversationEngine {
     this.activeComplaint = 'chest_pain';
     this.currentQuestionIndex = 0;
     this.patientAnswers = {};
+    this.spokenTranscripts = [];
+    this.extractedEntitiesList = [];
     this.onRedFlagDetected = null;
     this.onQuestionChange = null;
     this.onInterviewComplete = null;
+    this.onVoiceParsed = null;
 
-    // SOCRATES Tree for Chest Pain (Mirroring Physician Clinical Reasoning)
+    // SOCRATES Tree for Chest Pain
     this.socratesChestPain = [
       {
         id: "site",
         socratesLetter: "S",
-        title: "Site (स्थान / இடம்)",
+        title: "Site (स्थान / दर्द का केंद्र)",
         prompt: {
-          en: "Where exactly is the discomfort or pain located?",
-          hi: "दर्द या बेचैनी मुख्य रूप से छाती में किस जगह पर महसूस हो रही है?",
-          ta: "வலி சரியாக எந்த இடத்தில் உள்ளது?"
+          hi: "कृपया मुझे बताएं, दर्द छाती में मुख्य रूप से किस जगह पर महसूस हो रहा है?",
+          en: "Could you please tell me where exactly in the chest the discomfort is centered?"
         },
         options: [
-          { key: "retrosternal", label: "Central Retrosternal (छाती के ठीक बीच में)", tag: "Central substernal", redFlagScore: 2 },
-          { key: "left_precordium", label: "Left Chest (बाईं ओर)", tag: "Left precordial", redFlagScore: 2 },
-          { key: "right_chest", label: "Right Chest (दाईं ओर)", tag: "Right hemithorax", redFlagScore: 0 },
-          { key: "epigastric", label: "Upper Stomach / Epigastric (पेट के ऊपरी हिस्से में)", tag: "Epigastric region", redFlagScore: 1 }
+          { key: "retrosternal", label: "छाती के ठीक बीच में / Central Retrosternal", tag: "Central substernal", redFlagScore: 2 },
+          { key: "left_precordium", label: "बाईं तरफ / Left Precordial Chest", tag: "Left precordial", redFlagScore: 2 },
+          { key: "right_chest", label: "दाईं तरफ / Right Chest", tag: "Right hemithorax", redFlagScore: 0 },
+          { key: "epigastric", label: "पेट के ऊपरी हिस्से में / Upper Epigastric", tag: "Epigastric region", redFlagScore: 1 }
         ]
       },
       {
         id: "onset",
         socratesLetter: "O",
-        title: "Onset (आरंभ / ஆரம்பம்)",
+        title: "Onset (आरंभ / दर्द कैसे शुरू हुआ)",
         prompt: {
-          en: "Did the pain start suddenly, or did it develop gradually?",
-          hi: "क्या यह दर्द अचानक शुरू हुआ था, या धीरे-धीरे बढ़ रहा है?",
-          ta: "வலி திடீரெனத் தொடங்கியதா அல்லது படிப்படியாக அதிகரித்ததா?"
+          hi: "क्या यह दर्द अचानक तीव्र गति से शुरू हुआ था, या धीरे-धीरे बढ़ रहा है?",
+          en: "Did the discomfort start all of a sudden, or has it been building up gradually?"
         },
         options: [
-          { key: "sudden_severe", label: "Sudden & Abrupt (< 5 mins) (अचानक तीव्र गति से)", tag: "Acute sudden onset", redFlagScore: 2 },
-          { key: "on_exertion", label: "Triggered by walking / stairs (चलने या सीढ़ियाँ चढ़ने पर)", tag: "Exertional onset", redFlagScore: 2 },
-          { key: "gradual_hours", label: "Gradual over several hours / days (धीरे-धीरे कई घंटों में)", tag: "Subacute onset", redFlagScore: 0 },
-          { key: "post_meal", label: "After heavy / spicy meal (खाना खाने के बाद)", tag: "Post-prandial onset", redFlagScore: 0 }
+          { key: "sudden_severe", label: "अचानक बहुत तीव्र (< 5 मिनट) / Sudden & Abrupt", tag: "Acute sudden onset", redFlagScore: 2 },
+          { key: "on_exertion", label: "चलने या सीढ़ियां चढ़ने पर / Triggered by exertion", tag: "Exertional onset", redFlagScore: 2 },
+          { key: "gradual_hours", label: "कई घंटों या दिनों में धीरे-धीरे / Gradual onset", tag: "Subacute onset", redFlagScore: 0 },
+          { key: "post_meal", label: "खाना खाने के बाद / After heavy meal", tag: "Post-prandial onset", redFlagScore: 0 }
         ]
       },
       {
         id: "character",
         socratesLetter: "C",
-        title: "Character (प्रकृति / தன்மை)",
+        title: "Character (दर्द का प्रकार / अहसास)",
         prompt: {
-          en: "How would you describe the feeling of the pain?",
-          hi: "आप दर्द का अहसास कैसे व्यक्त करेंगे?",
-          ta: "வலியை எவ்வாறு விவரிக்கிறீர்கள்?"
+          hi: "दर्द का अहसास कैसा लग रहा है? क्या कोई भारी दबाव, जलन या चुभन जैसा है?",
+          en: "How does the pain feel? Is it a heavy squeezing pressure, sharp, or burning?"
         },
         options: [
-          { key: "crushing_pressure", label: "Heavy crushing pressure like a weight (भारी दबाव या जकड़न)", tag: "Crushing/heaviness", redFlagScore: 3 },
-          { key: "sharp_stabbing", label: "Sharp stabbing like needle (सुई चुभने जैसा तेज़ दर्द)", tag: "Sharp pleuritic", redFlagScore: 0 },
-          { key: "burning_heartburn", label: "Burning / Acid heartburn (जलन जैसा अहसास)", tag: "Retrosternal burning", redFlagScore: 0 },
-          { key: "dull_ache", label: "Dull ache (हल्का लगातार मीठा दर्द)", tag: "Dull aching discomfort", redFlagScore: 1 }
+          { key: "crushing_pressure", label: "छाती पर बहुत भारी दबाव या जकड़न / Heavy Crushing Weight", tag: "Crushing/heaviness", redFlagScore: 3 },
+          { key: "sharp_stabbing", label: "सुई चुभने जैसा तेज़ दर्द / Sharp Pleuritic", tag: "Sharp pleuritic", redFlagScore: 0 },
+          { key: "burning_heartburn", label: "तेज़ जलन या एसिडिटी / Burning Heartburn", tag: "Retrosternal burning", redFlagScore: 0 },
+          { key: "dull_ache", label: "लगातार मीठा दर्द / Dull Persistent Ache", tag: "Dull aching discomfort", redFlagScore: 1 }
         ]
       },
       {
         id: "radiation",
         socratesLetter: "R",
-        title: "Radiation (फैलाव / பரவல்)",
+        title: "Radiation (फैलाव / कहीं और दर्द जाना)",
         prompt: {
-          en: "Does the pain radiate or travel anywhere else?",
-          hi: "क्या यह दर्द शरीर में कहीं और, जैसे बाएं हाथ या जबड़े में फैल रहा है?",
-          ta: "வலி இடது கை அல்லது தாடை வரை பரவுகிறதா?"
+          hi: "क्या यह दर्द आपके बाएं हाथ, कंधे, गर्दन या जबड़े की तरफ फैल रहा है?",
+          en: "Does the pain radiate or travel anywhere else, such as your left arm or jaw?"
         },
         options: [
-          { key: "left_arm_jaw", label: "Yes, to Left Arm, Neck or Jaw (हाँ, बाएं हाथ, गर्दन या जबड़े तक)", tag: "Radiation to left arm & jaw", redFlagScore: 3 },
-          { key: "back_scapula", label: "Yes, to Back / between shoulder blades (पीठ में पीछे की ओर)", tag: "Radiation to interscapular region", redFlagScore: 2 },
-          { key: "no_radiation", label: "No, stays localized in one spot (नहीं, केवल छाती में ही रहता है)", tag: "Localized non-radiating", redFlagScore: 0 }
+          { key: "left_arm_jaw", label: "हाँ, बाएं हाथ, कंधे या जबड़े में / Yes, to Left Arm & Jaw", tag: "Radiation to left arm & jaw", redFlagScore: 3 },
+          { key: "back_scapula", label: "पीठ में पीछे की ओर / Radiates to Back", tag: "Radiation to interscapular region", redFlagScore: 2 },
+          { key: "no_radiation", label: "नहीं, केवल एक ही जगह रहता है / No, Stays Localized", tag: "Localized non-radiating", redFlagScore: 0 }
         ]
       },
       {
         id: "associations",
         socratesLetter: "A",
-        title: "Associated Symptoms (संबद्ध लक्षण / பிற அறிகுறிகள்)",
+        title: "Associated Symptoms (संबद्ध लक्षण)",
         prompt: {
-          en: "Are you having cold sweating, breathlessness, or nausea?",
-          hi: "क्या आपको ठंडा पसीना, सांस फूलना या चक्कर जैसा लग रहा है?",
-          ta: "குளிர்ந்த வியர்வை அல்லது மூச்சுத்திணறல் உள்ளதா?"
+          hi: "क्या आपको ठंडा पसीना, सांस फूलना, चक्कर या घबराहट भी महसूस हो रही है?",
+          en: "Are you having cold sweating, breathlessness, dizziness, or nausea?"
         },
         options: [
-          { key: "sweat_and_dyspnoea", label: "Cold sweating & Shortness of breath (ठंडा पसीना + सांस फूलना)", tag: "Diaphoresis & Dyspnoea", redFlagScore: 4 },
-          { key: "dyspnoea_only", label: "Shortness of breath only (केवल सांस फूल रही है)", tag: "Exertional dyspnoea", redFlagScore: 2 },
-          { key: "nausea_dizziness", label: "Nausea & Lightheadedness (जी मिचलाना और चक्कर)", tag: "Nausea & presyncope", redFlagScore: 1 },
-          { key: "no_associations", label: "None of these (इनमें से कोई नहीं)", tag: "No vegetative symptoms", redFlagScore: 0 }
-        ]
-      },
-      {
-        id: "time_course",
-        socratesLetter: "T",
-        title: "Timing & Course (समय अवधि / கால அளவு)",
-        prompt: {
-          en: "How long has this current episode lasted?",
-          hi: "यह दर्द कितनी देर से लगातार बना हुआ है?",
-          ta: "இந்த வலி எவ்வளவு நேரமாக நீடிக்கிறது?"
-        },
-        options: [
-          { key: "continuous_gt_30m", label: "Continuous for > 30 minutes (लगातार 30 मिनट से अधिक समय से)", tag: "Continuous > 30 min duration", redFlagScore: 3 },
-          { key: "brief_transient", label: "Brief spells of 2 to 10 minutes (2 से 10 मिनट के दौरे)", tag: "Transient intermittent episodes", redFlagScore: 1 },
-          { key: "intermittent_days", label: "Comes and goes for several days (कई दिनों से रुक-रुक कर आ रहा है)", tag: "Chronic intermittent duration", redFlagScore: 0 }
-        ]
-      },
-      {
-        id: "exacerbating",
-        socratesLetter: "E",
-        title: "Exacerbating & Relieving Factors (घटाने-बढ़ाने वाले कारक)",
-        prompt: {
-          en: "Does anything make the pain better or worse?",
-          hi: "क्या आराम करने से दर्द घटता है, या सांस लेने से बढ़ता है?",
-          ta: "ஓய்வெடுப்பது வலியை குறைக்கிறதா?"
-        },
-        options: [
-          { key: "worse_exertion_relieved_rest", label: "Worse on exertion, relieved by rest (चलने पर बढ़ता है, बैठने पर आराम)", tag: "Typical anginal pattern", redFlagScore: 2 },
-          { key: "no_relief_rest", label: "Persistent even at absolute rest (आराम करने पर भी लगातार बना है)", tag: "Pain at rest", redFlagScore: 3 },
-          { key: "worse_deep_breath", label: "Worse with deep breath or cough (गहरी सांस या खांसने पर बढ़ता है)", tag: "Pleuritic exacerbation", redFlagScore: 0 },
-          { key: "relieved_antacid", label: "Relieved by antacids or water (एंटासिड दवा या पानी से आराम)", tag: "Acid-related relief", redFlagScore: 0 }
+          { key: "sweat_and_dyspnoea", label: "ठंडा पसीना + सांस फूलना / Cold Sweat & Shortness of Breath", tag: "Diaphoresis & Dyspnoea", redFlagScore: 4 },
+          { key: "dyspnoea_only", label: "केवल सांस फूल रही है / Shortness of Breath only", tag: "Exertional dyspnoea", redFlagScore: 2 },
+          { key: "nausea_dizziness", label: "जी मिचलाना और चक्कर / Nausea & Lightheadedness", tag: "Nausea & presyncope", redFlagScore: 1 },
+          { key: "no_associations", label: "इनमें से कोई नहीं / None of these", tag: "No vegetative symptoms", redFlagScore: 0 }
         ]
       },
       {
         id: "severity",
         socratesLetter: "S",
-        title: "Severity (तीव्रता / తీవ్రత 1-10)",
+        title: "Severity (तीव्रता / 1 से 10 के पैमाने पर)",
         prompt: {
-          en: "On a scale of 1 to 10, how severe is the pain right now?",
-          hi: "1 से 10 के पैमाने पर आप इस दर्द को कितना तीव्र आंकेंगे?",
-          ta: "1 முதல் 10 என்ற அளவில் வலி எவ்வளவு அதிகமாக உள்ளது?"
+          hi: "1 से 10 के पैमाने पर आप इस दर्द को कितना तीव्र कहेंगे?",
+          en: "On a scale of 1 to 10, how severe would you rate your discomfort right now?"
         },
         options: [
-          { key: "sev_extreme", label: "9 - 10: Excruciating / Unbearable (असहनीय तीव्र दर्द)", tag: "Pain 9-10/10", redFlagScore: 3 },
-          { key: "sev_severe", label: "7 - 8: Severe (काफी गंभीर दर्द)", tag: "Pain 7-8/10", redFlagScore: 2 },
-          { key: "sev_moderate", label: "4 - 6: Moderate (मध्यम दर्द)", tag: "Pain 4-6/10", redFlagScore: 1 },
-          { key: "sev_mild", label: "1 - 3: Mild Discomfort (हल्की बेचैनी)", tag: "Pain 1-3/10", redFlagScore: 0 }
+          { key: "sev_extreme", label: "9 - 10: बहुत असहनीय / Excruciating & Unbearable", tag: "Pain 9-10/10", redFlagScore: 3 },
+          { key: "sev_severe", label: "7 - 8: गंभीर तीव्र दर्द / Severe Pain", tag: "Pain 7-8/10", redFlagScore: 2 },
+          { key: "sev_moderate", label: "4 - 6: मध्यम दर्द / Moderate Discomfort", tag: "Pain 4-6/10", redFlagScore: 1 },
+          { key: "sev_mild", label: "1 - 3: हल्का दर्द / Mild", tag: "Pain 1-3/10", redFlagScore: 0 }
         ]
       }
     ];
@@ -151,49 +117,45 @@ class ConversationEngine {
         socratesLetter: "T",
         title: "Duration (अवधि)",
         prompt: {
-          en: "How long have you had this cough and fever?",
           hi: "आपको यह खांसी और बुखार कितने दिनों से है?",
-          ta: "இருமல் எத்தனை நாட்களாக உள்ளது?"
+          en: "How long have you had this cough and fever?"
         },
         options: [
-          { key: "dur_acute", label: "< 3 Days (3 दिन से कम)", tag: "Acute duration < 3 days", redFlagScore: 0 },
-          { key: "dur_subacute", label: "1 to 2 Weeks (1 से 2 सप्ताह)", tag: "Subacute 1-2 weeks", redFlagScore: 0 },
-          { key: "dur_chronic_tb", label: "> 3 Weeks (3 सप्ताह से अधिक - TB स्क्रीनिंग आवश्यक)", tag: "Chronic > 3 weeks", redFlagScore: 1 }
+          { key: "dur_acute", label: "3 दिन से कम / < 3 Days", tag: "Acute duration < 3 days", redFlagScore: 0 },
+          { key: "dur_subacute", label: "1 से 2 सप्ताह / 1 to 2 Weeks", tag: "Subacute 1-2 weeks", redFlagScore: 0 },
+          { key: "dur_chronic_tb", label: "3 सप्ताह से अधिक / > 3 Weeks (TB Screen)", tag: "Chronic > 3 weeks", redFlagScore: 1 }
         ]
       },
       {
         id: "sputum",
         socratesLetter: "C",
-        title: "Character of Sputum (बलगम का प्रकार)",
+        title: "Sputum Character (बलगम का प्रकार)",
         prompt: {
-          en: "Is the cough dry, or is there phlegm/blood?",
           hi: "क्या सूखी खांसी है, या बलगम/खून आ रहा है?",
-          ta: "சளியில் இரத்தம் வருகிறதா?"
+          en: "Is the cough dry, or is there phlegm/blood?"
         },
         options: [
-          { key: "hemoptysis", label: "Blood in Sputum (बलगम में खून - हेमोप्टाइसिस)", tag: "Hemoptysis present", redFlagScore: 3 },
-          { key: "purulent", label: "Thick yellowish-green phlegm (पीला/हरा गाढ़ा बलगम)", tag: "Purulent productive cough", redFlagScore: 1 },
-          { key: "dry", label: "Dry irritating cough (सूखी खांसी)", tag: "Non-productive dry cough", redFlagScore: 0 }
+          { key: "hemoptysis", label: "बलगम में खून (हेमोप्टाइसिस) / Blood in Sputum", tag: "Hemoptysis present", redFlagScore: 3 },
+          { key: "purulent", label: "पीला या हरा गाढ़ा बलगम / Thick Purulent Phlegm", tag: "Purulent productive cough", redFlagScore: 1 },
+          { key: "dry", label: "सूखी खांसी / Dry Cough", tag: "Non-productive dry cough", redFlagScore: 0 }
         ]
       },
       {
         id: "breathing_difficulty",
         socratesLetter: "A",
-        title: "Breathing Difficulty (सांस लेने में परेशानी)",
+        title: "Breathing (सांस की स्थिति)",
         prompt: {
-          en: "Are you struggling to breathe or feeling chest congestion?",
-          hi: "क्या आपको सांस लेने में कठिनाई या घरघराहट महसूस हो रही है?",
-          ta: "மூச்சுத் திணறல் உள்ளதா?"
+          hi: "क्या आपको सांस लेने में रुकावट या सीने में भारी घड़घड़ाहट लग रही है?",
+          en: "Are you struggling to breathe or feeling severe chest congestion?"
         },
         options: [
-          { key: "severe_stridor", label: "Severe difficulty at rest / blue lips (आराम में भी सांस फूलना)", tag: "Resting respiratory distress", redFlagScore: 4 },
-          { key: "mild_wheeze", label: "Mild breathlessness on walking (चलने पर हल्की सांस फूलना)", tag: "Exertional dyspnoea", redFlagScore: 1 },
-          { key: "none", label: "Breathing normally (सांस सामान्य है)", tag: "No respiratory distress", redFlagScore: 0 }
+          { key: "severe_stridor", label: "आराम करने पर भी सांस फूलना / Severe Resting Dyspnoea", tag: "Resting respiratory distress", redFlagScore: 4 },
+          { key: "mild_wheeze", label: "हल्की घरघराहट / Mild Wheezing on walking", tag: "Exertional dyspnoea", redFlagScore: 1 },
+          { key: "none", label: "सांस सामान्य है / Breathing Normally", tag: "No respiratory distress", redFlagScore: 0 }
         ]
       }
     ];
 
-    // Load AYUSH Dashavidha Pariksha questions from ontologies
     this.ayushQuestions = window.MEDIKIOSK_ONTOLOGIES ? window.MEDIKIOSK_ONTOLOGIES.ayushDashavidha : [];
   }
 
@@ -216,45 +178,91 @@ class ConversationEngine {
   }
 
   getQuestionsList() {
-    if (this.mode === 'ayush') {
-      return this.ayushQuestions;
-    }
-    if (this.activeComplaint === 'cough_fever') {
-      return this.socratesCoughFever;
-    }
+    if (this.mode === 'ayush') return this.ayushQuestions;
+    if (this.activeComplaint === 'cough_fever') return this.socratesCoughFever;
     return this.socratesChestPain;
   }
 
   getCurrentQuestion() {
     const list = this.getQuestionsList();
-    if (this.currentQuestionIndex >= list.length) {
-      return null;
-    }
+    if (this.currentQuestionIndex >= list.length) return null;
     return list[this.currentQuestionIndex];
+  }
+
+  /**
+   * Natural Language Symptom Extractor from Voice / Chat
+   */
+  parseSpokenVoiceInput(spokenText) {
+    if (!spokenText) return;
+    this.spokenTranscripts.push(spokenText);
+    const lower = spokenText.toLowerCase();
+    const extracted = [];
+
+    // Check Chest Pain / Cardiac
+    if (lower.includes('chest') || lower.includes('सीने') || lower.includes('छाती') || lower.includes('dard') || lower.includes('दर्द')) {
+      extracted.push({ entity: 'Chief Complaint', value: 'Chest Pain / छाती में दर्द', snomed: '29857009' });
+      this.patientAnswers['site'] = { questionId: 'site', selectedKey: 'retrosternal', clinicalTag: 'Central substernal chest', redFlagScore: 2 };
+    }
+
+    // Check Crushing / Heavy
+    if (lower.includes('crush') || lower.includes('heavy') || lower.includes('दबाव') || lower.includes('भारी') || lower.includes('जकड़न')) {
+      extracted.push({ entity: 'Character', value: 'Heavy Crushing Pressure / भारी दबाव', snomed: '279024001' });
+      this.patientAnswers['character'] = { questionId: 'character', selectedKey: 'crushing_pressure', clinicalTag: 'Crushing/heaviness', redFlagScore: 3 };
+    }
+
+    // Check Left Arm / Jaw Radiation
+    if (lower.includes('arm') || lower.includes('jaw') || lower.includes('बाएं हाथ') || lower.includes('हाथ') || lower.includes('जबड़े')) {
+      extracted.push({ entity: 'Radiation', value: 'Left Arm & Jaw / बाएं हाथ में फैलाव', snomed: '417380004' });
+      this.patientAnswers['radiation'] = { questionId: 'radiation', selectedKey: 'left_arm_jaw', clinicalTag: 'Radiation to left arm & jaw', redFlagScore: 3 };
+    }
+
+    // Check Cold Sweating / Dyspnoea
+    if (lower.includes('sweat') || lower.includes('breath') || lower.includes('पसीना') || lower.includes('सांस') || lower.includes('सांस फूल')) {
+      extracted.push({ entity: 'Associated Symptoms', value: 'Cold Sweating & Dyspnoea / ठंडा पसीना व सांस फूलना', snomed: '41569001' });
+      this.patientAnswers['associations'] = { questionId: 'associations', selectedKey: 'sweat_and_dyspnoea', clinicalTag: 'Diaphoresis & Dyspnoea', redFlagScore: 4 };
+    }
+
+    // Check Cough & Fever
+    if (lower.includes('cough') || lower.includes('fever') || lower.includes('खांसी') || lower.includes('बुखार')) {
+      extracted.push({ entity: 'Chief Complaint', value: 'Persistent Productive Cough & Fever', snomed: '49727002' });
+    }
+
+    // Assign high severity if strong words
+    if (lower.includes('बहुत तेज') || lower.includes('severe') || lower.includes('असहनीय') || lower.includes('terrible')) {
+      extracted.push({ entity: 'Pain Severity', value: 'Severe 8-9/10 (High Intensity)' });
+      this.patientAnswers['severity'] = { questionId: 'severity', selectedKey: 'sev_extreme', clinicalTag: 'Pain 9/10', redFlagScore: 3 };
+    }
+
+    this.extractedEntitiesList = extracted;
+
+    if (this.onVoiceParsed) {
+      this.onVoiceParsed(spokenText, extracted);
+    }
+
+    const redFlagAssessment = this.evaluateRedFlag();
+    if (redFlagAssessment.isEmergency) {
+      if (this.onRedFlagDetected) {
+        this.onRedFlagDetected(redFlagAssessment);
+      }
+    }
   }
 
   recordAnswer(optionKey, freeTextVoice = null) {
     const q = this.getCurrentQuestion();
     if (!q) return;
 
-    let selectedOption = null;
-    if (this.mode === 'allopathy') {
-      selectedOption = q.options.find(o => o.key === optionKey) || q.options[0];
-    } else {
-      selectedOption = q.options.find(o => o.label.includes(optionKey)) || q.options[0];
-    }
+    let selectedOption = q.options.find(o => o.key === optionKey) || q.options[0];
 
     this.patientAnswers[q.id] = {
       questionId: q.id,
       title: q.title,
       selectedKey: optionKey,
       selectedLabel: selectedOption.label,
-      clinicalTag: selectedOption.tag || selectedOption.traits || selectedOption.label,
+      clinicalTag: selectedOption.tag || selectedOption.label,
       redFlagScore: selectedOption.redFlagScore || 0,
       freeTextVoice: freeTextVoice || null
     };
 
-    // Check for Red Flag Emergency Condition in Allopathy
     if (this.mode === 'allopathy') {
       const redFlagAssessment = this.evaluateRedFlag();
       if (redFlagAssessment.isEmergency) {
@@ -265,39 +273,30 @@ class ConversationEngine {
       }
     }
 
-    // Advance to next question
     this.currentQuestionIndex++;
     const nextQ = this.getCurrentQuestion();
     if (nextQ) {
-      if (this.onQuestionChange) {
-        this.onQuestionChange(nextQ);
-      }
+      if (this.onQuestionChange) this.onQuestionChange(nextQ);
     } else {
-      if (this.onInterviewComplete) {
-        this.onInterviewComplete(this.patientAnswers);
-      }
+      if (this.onInterviewComplete) this.onInterviewComplete(this.patientAnswers);
     }
   }
 
   evaluateRedFlag() {
     let totalScore = 0;
     let reasons = [];
-
     const ans = this.patientAnswers;
 
-    // Direct clinical rules for MI / ACS:
-    const isCrushing = ans['character'] && (ans['character'].selectedKey === 'crushing_pressure');
-    const isRadiating = ans['radiation'] && (ans['radiation'].selectedKey === 'left_arm_jaw');
-    const hasSweatDyspnoea = ans['associations'] && (ans['associations'].selectedKey === 'sweat_and_dyspnoea');
-    const hasSevereStridor = ans['breathing_difficulty'] && (ans['breathing_difficulty'].selectedKey === 'severe_stridor');
-    const hasHemoptysis = ans['sputum'] && (ans['sputum'].selectedKey === 'hemoptysis');
+    const isCrushing = ans['character'] && ans['character'].selectedKey === 'crushing_pressure';
+    const isRadiating = ans['radiation'] && ans['radiation'].selectedKey === 'left_arm_jaw';
+    const hasSweatDyspnoea = ans['associations'] && ans['associations'].selectedKey === 'sweat_and_dyspnoea';
 
     Object.values(ans).forEach(a => {
       totalScore += (a.redFlagScore || 0);
     });
 
     if (isCrushing && (isRadiating || hasSweatDyspnoea)) {
-      reasons.push("Crushing chest pain radiating to left arm/jaw with autonomic sweating (High probability Acute STEMI/ACS)");
+      reasons.push("सीने में तीव्र भारी दबाव, बाएं हाथ में फैलाव और ठंडा पसीना (Acute STEMI/ACS Suspicion)");
       return {
         isEmergency: true,
         urgency: "PRIORITY 1 - IMMEDIATE RESUSCITATION BAY",
@@ -307,19 +306,8 @@ class ConversationEngine {
       };
     }
 
-    if (hasSevereStridor) {
-      reasons.push("Acute respiratory distress with impending respiratory failure");
-      return {
-        isEmergency: true,
-        urgency: "PRIORITY 1 - CRITICAL AIRWAY",
-        code: "RED-ALERT-RESP",
-        reasons: reasons,
-        action: "Immediate oxygenation, nebulization standby, emergency physician bedside triage."
-      };
-    }
-
-    if (totalScore >= 8) {
-      reasons.push("Cumulative high clinical severity score across multiple SOCRATES vectors (" + totalScore + " points)");
+    if (totalScore >= 7) {
+      reasons.push("Cumulative high clinical severity score across multiple SOCRATES vectors");
       return {
         isEmergency: true,
         urgency: "PRIORITY 1 - HIGH SEVERITY",
